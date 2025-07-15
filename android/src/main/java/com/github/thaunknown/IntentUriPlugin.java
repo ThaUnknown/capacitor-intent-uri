@@ -15,6 +15,10 @@ import com.getcapacitor.util.InternalUtils;
 
 @CapacitorPlugin(name = "IntentUri")
 public class IntentUriPlugin extends Plugin {
+    private static final int INTENT_URI_REQUEST_CODE = 9001;
+    private PluginCall savedCall;
+    private boolean waitingForIntent = false;
+
     @PluginMethod
     public void openUri(PluginCall call) {
         String url = call.getString("url");
@@ -23,29 +27,59 @@ public class IntentUriPlugin extends Plugin {
             return;
         }
 
-        JSObject ret = new JSObject();
         final PackageManager manager = getContext().getPackageManager();
         Intent launchIntent;
         try {
             launchIntent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME);
         } catch (URISyntaxException e) {
+            JSObject ret = new JSObject();
             ret.put("completed", false);
+            ret.put("message", e.getMessage());
             call.resolve(ret);
             return;
         }
 
         try {
-            getActivity().startActivity(launchIntent);
-            ret.put("completed", true);
+            savedCall = call;
+            waitingForIntent = true;
+            startActivityForResult(call, launchIntent, INTENT_URI_REQUEST_CODE);
         } catch (Exception ex) {
-            launchIntent = manager.getLaunchIntentForPackage(url);
             try {
-                getActivity().startActivity(launchIntent);
-                ret.put("completed", true);
+                launchIntent = manager.getLaunchIntentForPackage(url);
+                savedCall = call;
+                waitingForIntent = true;
+                startActivityForResult(call, launchIntent, INTENT_URI_REQUEST_CODE);
             } catch (Exception expgk) {
+                JSObject ret = new JSObject();
                 ret.put("completed", false);
+                ret.put("message", expgk.getMessage());
+                call.resolve(ret);
             }
         }
-        call.resolve(ret);
+    }
+
+    @Override
+    protected void handleOnActivityResult(int requestCode, int resultCode, Intent data) {
+        super.handleOnActivityResult(requestCode, resultCode, data);
+        if (requestCode == INTENT_URI_REQUEST_CODE && savedCall != null) {
+            JSObject ret = new JSObject();
+            ret.put("completed", true);
+            savedCall.resolve(ret);
+            savedCall = null;
+            waitingForIntent = false;
+        }
+    }
+
+    @Override
+    protected void handleOnResume() {
+        super.handleOnResume();
+        // If we were waiting for an intent and the call is still pending, resolve it now
+        if (waitingForIntent && savedCall != null) {
+            JSObject ret = new JSObject();
+            ret.put("completed", true);
+            savedCall.resolve(ret);
+            savedCall = null;
+            waitingForIntent = false;
+        }
     }
 }

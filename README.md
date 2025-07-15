@@ -23,14 +23,14 @@ npx cap sync
 ### openUri(...)
 
 ```typescript
-openUri(options: { url: string; }) => Promise<{ completed: boolean; }>
+openUri(options: { url: string; }) => Promise<{ completed: true; } | { completed: false; message: string; }>
 ```
 
 | Param         | Type                          |
 | ------------- | ----------------------------- |
 | **`options`** | <code>{ url: string; }</code> |
 
-**Returns:** <code>Promise&lt;{ completed: boolean; }&gt;</code>
+**Returns:** <code>Promise&lt;{ completed: true; } | { completed: false; message: string; }&gt;</code>
 
 --------------------
 
